@@ -1,0 +1,31 @@
+{
+  "name": "2d-magic-generator",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --reporter=verbose",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gradio/client": "^2.7.0",
+    "@huggingface/inference": "^4.13.30",
+    "next": "14.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.5",
+    "typescript": "5.9.3",
+    "vitest": "^1.6.0"
+  }
+}

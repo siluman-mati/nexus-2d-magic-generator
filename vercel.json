@@ -1,0 +1,31 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "functions": {
+    "app/api/generate/route.ts": {
+      "maxDuration": 90
+    },
+    "app/api/nexus/brain/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/generate-hf/route.ts": {
+      "maxDuration": 90
+    },
+    "app/api/generate-video/route.ts": {
+      "maxDuration": 90
+    },
+    "app/api/character-image/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/image/generate/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "env": {
+    "GROQ_MODEL": "openai/gpt-oss-20b",
+    "OPENROUTER_MODEL": "meta-llama/llama-3.3-70b-instruct",
+    "LOCAL_AI_MODEL": "llama3.1"
+  }
+}

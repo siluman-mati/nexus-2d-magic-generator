@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visual Style Selector - Preview</title>
+<style>
+body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 2rem; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; max-width: 600px; margin: 0 auto; }
+label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: #94a3b8; }
+.btn { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0.75rem 1rem; background: rgba(99,102,241,0.08); border: 1px solid #6366f1; border-radius: 8px; color: #e2e8f0; cursor: pointer; font-size: 0.9rem; }
+.genre-list { margin-top: 0.5rem; max-height: 360px; overflow-y: auto; border: 1px solid #334155; border-radius: 8px; padding: 0.5rem; background: #1e293b; }
+.genre-option { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem; cursor: pointer; border-radius: 6px; margin-bottom: 0.2rem; border: 1px solid transparent; }
+.genre-option.active { border-color: #6366f1; background: rgba(99,102,241,0.15); }
+.genre-option:hover { background: rgba(255,255,255,0.05); }
+.icon { font-size: 1.2rem; }
+.modifier { font-size: 0.6rem; color: #64748b; }
+.badge { font-size: 0.7rem; color: #94a3b8; margin-top: 0.5rem; }
+.success { color: #22c55e; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+.detail-row { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #1e293b; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2 style="margin:0 0 0.3rem 0">Story Input - Tema Bebas</h2>
+  <p style="font-size:0.7rem;color:#64748b;margin:0 0 1rem 0">Tema boleh: nama, kuliner, tempat, benda, hewan, dll. Hanya tolak jika kosong</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+    <div>
+      <label>Theme (Bebas)</label>
+      <input value="Cinta rangga" style="width:100%;padding:0.6rem;border-radius:6px;background:#0f172a;border:1px solid #334155;color:#e2e8f0" />
+    </div>
+    <div>
+      <label>Genre</label>
+      <button class="btn" style="background:#1e293b;border-color:#334155"><span>Genre : Nusantara ✅</span><span>▼</span></button>
+    </div>
+
+    <div style="grid-column:1 / -1">
+      <label>Visual Style (Terpisah dari Genre) — NEW ✨</label>
+      <button class="btn" onclick="document.getElementById('vs-list').style.display = document.getElementById('vs-list').style.display==='none'?'block':'none'">
+        <span>🎨 Anime / 2D Studio ✅</span><span>▼</span>
+      </button>
+      <div id="vs-list" class="genre-list">
+        <label class="genre-option active"><input type="radio" checked> <span class="icon">🎨</span> <div><div><b>Anime / 2D Studio ✅</b></div><div class="modifier">anime style, 2d animation, clean lines, vibrant colors</div></div></label>
+        <label class="genre-option"><input type="radio"> <span class="icon">📸</span> <div><div><b>Photorealistic</b></div><div class="modifier">photorealistic, raw photo, dslr quality, detailed texture, 8k</div></div></label>
+        <label class="genre-option"><input type="radio"> <span class="icon">🧊</span> <div><div><b>3D Animation</b></div><div class="modifier">3d render, pixar style, smooth shading, expressive 3d character</div></div></label>
+        <label class="genre-option"><input type="radio"> <span class="icon">🖌️</span> <div><div><b>Semi-Realistic</b></div><div class="modifier">digital painting, semi-realistic, artstation trending</div></div></label>
+        <label class="genre-option"><input type="radio"> <span class="icon">💥</span> <div><div><b>Comic Book</b></div><div class="modifier">comic book style, bold outlines, graphic novel aesthetic</div></div></label>
+        <label class="genre-option"><input type="radio"> <span class="icon">🌑</span> <div><div><b>Dark Fantasy</b></div><div class="modifier">dark fantasy style, cinematic lighting, moody atmosphere</div></div></label>
+      </div>
+      <div class="badge">Aktif: <b style="color:#e2e8f0">Anime / 2D Studio</b> — anime style, 2d animation, clean lines, vibrant colors<br><span style="font-size:0.6rem">Terpisah dari Genre — akan disisipkan ke prompt karakter & adegan</span></div>
+    </div>
+
+    <div>
+      <label>Tone</label>
+      <input value="Drama romantis" style="width:100%;padding:0.6rem;border-radius:6px;background:#0f172a;border:1px solid #334155;color:#e2e8f0" />
+    </div>
+    <div>
+      <label>Jumlah episode</label>
+      <input value="1" style="width:100%;padding:0.6rem;border-radius:6px;background:#0f172a;border:1px solid #334155;color:#e2e8f0" />
+    </div>
+  </div>
+
+  <div style="margin-top:1.5rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:0.8rem;font-size:0.7rem">
+    <b class="success">✅ Code sudah ada di app/page.tsx commit 48da361</b><br>
+    - State visualStyle default 'anime' + localStorage persist<br>
+    - saveProject({ inputs: { visualStyle } })<br>
+    - buildCharacterVisualPrompt(..., visualStyle) + generate-hf { visualStyle }<br>
+    - Modifier disisipkan ke prompt: anime style, photorealistic, 3d render, dll<br>
+    Prod screenshot kamu (Cinta Rangga) adalah deployment lama sebelum commit ini.
+  </div>
+
+  <div style="margin-top:1rem">
+    <h4>Project Information</h4>
+    <div class="detail-row"><span>Tema</span><span>Cinta rangga ✅</span></div>
+    <div class="detail-row"><span>Genre</span><span>Nusantara ✅</span></div>
+    <div class="detail-row"><span>Visual Style</span><span>Anime / 2D Studio 🎨 ✅ — NEW</span></div>
+  </div>
+</div>
+</body>
+</html>
