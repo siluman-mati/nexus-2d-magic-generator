@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getHuggingFaceToken } from '@/lib/2d-generator/hf-auth'
 import { ProviderManager } from '@/lib/ai/provider-manager'
 import { getNexusBrainStatus } from '@/lib/ai/nexus-brain'
 import { getAllProviderStatus, getResearchConfig } from '@/lib/config'
@@ -14,7 +15,7 @@ export async function GET() {
   const configuredCount = status.nexus.configuredProviders.length
   const isReady = configuredCount > 0
 
-  const hfKeyPresent = !!(process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || process.env.HUGGINGFACE_API_TOKEN || process.env.HUGGING_FACE_API_KEY || process.env.HUNGGING_FACE_API_KEY);
+  const hfKeyPresent = !!getHuggingFaceToken();
   // REFACTOR: ComfyUI removed — now using Direct HF Inference FLUX.1-schnell (Dynamic) as default image engine — FORCE OVERRIDE
   let imageEngineHealth: any = {
     engine: 'Direct HF Inference FLUX.1-schnell (Dynamic)',

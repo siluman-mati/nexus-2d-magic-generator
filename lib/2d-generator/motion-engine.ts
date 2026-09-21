@@ -3,6 +3,7 @@
 // NO Pollinations — honest MOTION_ENGINE_FAILED
 
 import { Client, handle_file } from '@gradio/client';
+import { getHuggingFaceToken, HF_TOKEN_MISSING_MESSAGE } from './hf-auth';
 
 export const MOTION_ENGINE_LABEL = 'Motion Engine: Gradio CogVideoX / SVD I2V (Dynamic)';
 export const MOTION_ENGINE_VERSION = 'v4-cogvideox-svd';
@@ -50,10 +51,6 @@ export interface MotionGenerateResult {
 const MOTION_TIMEOUT_MS = 60000;
 const RETRY_BACKOFF_MS = 5000;
 const MAX_RETRIES_PER_SPACE = 2;
-
-function getAuthToken(): string {
-  return process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || process.env.HUGGINGFACE_API_TOKEN || process.env.HUGGING_FACE_API_KEY || process.env.HUNGGING_FACE_API_KEY || '';
-}
 
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -128,7 +125,7 @@ async function trySpace(
   signal?: AbortSignal,
   attempt: number = 1
 ): Promise<{ videoUrl?: string; rawResult?: any; error?: string; endpointTried?: string }> {
-  const token = getAuthToken();
+  const token = getHuggingFaceToken();
   const start = Date.now();
   console.log(`[MotionEngine] [${requestId}] Trying space ${spaceId} attempt ${attempt} — prompt: ${motionPrompt.slice(0,80)} — blob ${imageBlob.size} bytes ${imageBlob.type}`);
 
@@ -252,6 +249,20 @@ export async function generateMotionVideo(
 ): Promise<MotionGenerateResult> {
   const requestId = request.requestId || `motion_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
   const start = Date.now();
+  // This library returns a typed result; the calling API serializes it to JSON.
+  // Check before downloading the input image or connecting to Gradio Spaces.
+  if (!getHuggingFaceToken()) {
+    return {
+      ok: false,
+      errorCode: 'HF_TOKEN_MISSING',
+      errorMessage: HF_TOKEN_MISSING_MESSAGE,
+      engineLabel: MOTION_ENGINE_LABEL,
+      triedSpaces: [],
+      processingTimeMs: Date.now() - start,
+      retryable: false,
+      verification: 'FAILED — missing HF token',
+    };
+  }
   const motionPrompt = request.motionPrompt?.trim() || 'subtle camera zoom, character blinking, natural motion, cinematic, smooth movement';
   const spaces = [DEFAULT_MOTION_SPACES.primary, ...DEFAULT_MOTION_SPACES.fallbacks];
   const triedSpaces: string[] = [];

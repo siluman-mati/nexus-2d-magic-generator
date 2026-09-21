@@ -67,6 +67,7 @@ export async function POST(req: Request) {
 
     if (!result.ok) {
       const statusMap: Record<string, number> = {
+        HF_TOKEN_MISSING: 503,
         INVALID_INPUT: 400,
         MOTION_ENGINE_FAILED: 503,
         TIMEOUT: 408,

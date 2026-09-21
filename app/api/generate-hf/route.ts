@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getHuggingFaceToken, HF_TOKEN_MISSING_MESSAGE } from '@/lib/2d-generator/hf-auth';
 import { generatorWorkflow } from '@/lib/2d-generator/workflow';
 import { validatePrompt, validateCharacterContext } from '@/lib/2d-generator/validation';
 import { getVisualStyleDef, buildPromptWithVisualStyle } from '@/lib/2d-generator/visual-style';
@@ -15,8 +16,6 @@ const HF_FALLBACK_ENDPOINTS: { url: string; format: 'inputs' | 'prompt' }[] = [
   { url: 'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell', format: 'inputs' },
 ];
 
-const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || process.env.HUGGINGFACE_API_TOKEN || process.env.HUGGING_FACE_API_KEY || process.env.HUNGGING_FACE_API_KEY || '';
-function getAuthHeader(): string { const key = process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || process.env.HUGGINGFACE_API_TOKEN || process.env.HUGGING_FACE_API_KEY || process.env.HUNGGING_FACE_API_KEY || HUGGINGFACE_API_KEY; return `Bearer ${key}`; }
 const GENERATION_TIMEOUT_MS = 85000;
 
 // === FALLBACK GENDER VALUE — fix INVALID_INPUT Gender karakter wajib (Laki-Laki/Perempuan) ===
@@ -66,8 +65,8 @@ function sanitizeCharacterPayload(charData: any, genderParam: string, characterN
 
 
 async function generateViaDirectHFInference(prompt: string, requestId: string, signal?: AbortSignal): Promise<{ ok: boolean; imageUrl?: string; mimeType?: string; errorCode?: string; errorMessage?: string; processingTimeMs?: number; triedEndpoint?: string; triedEndpoints?: string[] }> {
-  const token = process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || process.env.HUGGINGFACE_API_TOKEN || process.env.HUGGING_FACE_API_KEY || process.env.HUNGGING_FACE_API_KEY || '';
-  if (!token) return { ok: false, errorCode: 'AUTHENTICATION_FAILED', errorMessage: 'HUGGINGFACE_API_KEY not set for Direct HF Inference' };
+  const token = getHuggingFaceToken();
+  if (!token) return { ok: false, errorCode: 'HF_TOKEN_MISSING', errorMessage: HF_TOKEN_MISSING_MESSAGE };
   const maxRetriesPerEndpoint = 3; const retryDelayMs = 5000; let lastError: any = null; const start = Date.now(); const allTried: string[] = [];
   for (const ep of HF_FALLBACK_ENDPOINTS) {
     allTried.push(ep.url); let attempt = 0;
@@ -112,11 +111,25 @@ async function generateViaDirectHFInference(prompt: string, requestId: string, s
 
 export async function POST(req: Request) {
   const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; const startTime = Date.now();
+  // Fail before parsing input or starting any provider/fallback work.
+  if (!getHuggingFaceToken()) {
+    return NextResponse.json({
+      ok: false,
+      errorCode: 'HF_TOKEN_MISSING',
+      errorMessage: HF_TOKEN_MISSING_MESSAGE,
+      state: 'FAILED',
+      requestId,
+      engineLabel: FORCE_ENGINE_LABEL,
+      hasHuggingFaceKey: false,
+      retryable: false,
+      processingTimeMs: Date.now() - startTime,
+    }, { status: 503 });
+  }
   try {
     const body = await req.json();
     const { prompt, characterName, gender, characterData, worldSetting, theme, locations, mode, type, timeOfDay, weather, time, cuaca, waktu, storyContext, sourceStory, visualStyle, projectId, userId } = body;
     console.log(`[generate-hf] [${requestId}] START — visualStyle=${visualStyle || 'anime'} — char=${characterData?.name || characterName || 'none'} — mode=${mode || type || 'auto'} — ENGINE: Direct HF Inference ${HF_MODEL_ID} — Dynamic`);
-    const hfKeyPresent = !!(process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || process.env.HUGGINGFACE_API_TOKEN || process.env.HUGGING_FACE_API_KEY || process.env.HUNGGING_FACE_API_KEY || HUGGINGFACE_API_KEY);
+    const hfKeyPresent = !!getHuggingFaceToken();
     console.log(`[generate-hf] [${requestId}] HUGGINGFACE_API_KEY present: ${hfKeyPresent ? 'YES' : 'NO'} — Bearer [REDACTED] — Direct HF Inference primary ${HF_ENDPOINT} + fallback router.huggingface.co/fal-ai/fal-ai/flux/schnell — steps 8 guidance 3.5 — keys checked: HUGGINGFACE_API_KEY, HF_TOKEN, HUGGINGFACE_API_TOKEN, HUGGING_FACE_API_KEY, HUNGGING_FACE_API_KEY`);
     // === PAYLOAD SANITIZATION — ensure gender never empty/null before backend FLUX/HF generator ===
     let sanitizedCharacterData = characterData;
@@ -157,7 +170,7 @@ export async function POST(req: Request) {
         clearTimeout(timeoutId);
         if (!workflowResult.ok) {
           const totalTime = Date.now() - startTime; console.error(`[generate-hf] [${requestId}] Workflow also FAILED — state=${workflowResult.state} — code=${workflowResult.errorCode} — ${workflowResult.errorMessage} — time=${totalTime}ms`);
-          const statusMap: Record<string, number> = { AUTHENTICATION_FAILED: 401, RATE_LIMITED: 429, TIMEOUT: 408, QUOTA_EXCEEDED: 402, PROVIDER_UNAVAILABLE: 503, INVALID_INPUT: 400, INVALID_OUTPUT: 500, REFERENCE_MISSING: 400, CHARACTER_LEAKAGE: 400, STORAGE_FAILED: 500, DUPLICATE_REQUEST: 409, CANCELLED: 499, UNKNOWN_ERROR: 500 };
+          const statusMap: Record<string, number> = { HF_TOKEN_MISSING: 503, AUTHENTICATION_FAILED: 401, RATE_LIMITED: 429, TIMEOUT: 408, QUOTA_EXCEEDED: 402, PROVIDER_UNAVAILABLE: 503, INVALID_INPUT: 400, INVALID_OUTPUT: 500, REFERENCE_MISSING: 400, CHARACTER_LEAKAGE: 400, STORAGE_FAILED: 500, DUPLICATE_REQUEST: 409, CANCELLED: 499, UNKNOWN_ERROR: 500 };
           const httpStatus = statusMap[workflowResult.errorCode || directResult.errorCode || 'UNKNOWN_ERROR'] || 500;
           return NextResponse.json({ ok: false, errorCode: workflowResult.errorCode || directResult.errorCode || 'PROVIDER_UNAVAILABLE', errorMessage: workflowResult.errorMessage || directResult.errorMessage || 'Direct HF Inference failed', state: workflowResult.state || 'FAILED', jobId: workflowResult.jobId, requestId: workflowResult.requestId || requestId, generationId: workflowResult.jobId, visualStyle: visualStyleRaw, visualStyleModifier: visualStyleDef.positivePrefix, visualStyleNegative: visualStyleDef.negativeOverride, engineLabel: FORCE_ENGINE_LABEL, endpoint: HF_ENDPOINT, model: HF_MODEL_ID, processingTimeMs: totalTime, hasHuggingFaceKey: hfKeyPresent, directHfError: directResult.errorMessage, triedEndpoint: directResult.triedEndpoint || HF_ENDPOINT, triedEndpoints: directResult.triedEndpoints, payload: { inputs: 'prompt', parameters: { num_inference_steps: 8, guidance_scale: 3.5 } }, verification: 'Direct HF Inference FAILED — no Gradio — honest error — steps 8 guidance 3.5 — no Pollinations' }, { status: httpStatus });
         }
@@ -177,10 +190,10 @@ export async function POST(req: Request) {
       clearTimeout(timeoutId); const isCancelled = err.name === 'AbortError' || abortController.signal.aborted || err.message.includes('Cancelled') || err.message.includes('aborted');
       if (isCancelled) { console.log(`[generate-hf] [${requestId}] CANCELLED — time=${Date.now() - startTime}ms`); return NextResponse.json({ ok: false, errorCode: 'CANCELLED', errorMessage: 'Generation cancelled by user or timeout', state: 'CANCELLED', requestId, engineLabel: FORCE_ENGINE_LABEL, endpoint: HF_ENDPOINT, processingTimeMs: Date.now() - startTime }, { status: 499 }); }
       console.error(`[generate-hf] [${requestId}] Exception: ${err.message}`, err.stack); const safeMessage = err.message.replace(/sk-[a-zA-Z0-9]+/g, '[REDACTED]').replace(/hf_[a-zA-Z0-9]+/g, '[REDACTED]').replace(/vcp_[a-zA-Z0-9]+/g, '[REDACTED]');
-      return NextResponse.json({ ok: false, errorCode: 'UNKNOWN_ERROR', errorMessage: safeMessage, state: 'FAILED', requestId, engineLabel: FORCE_ENGINE_LABEL, endpoint: HF_ENDPOINT, hasHuggingFaceKey: !!(process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || process.env.HUGGINGFACE_API_TOKEN || process.env.HUGGING_FACE_API_KEY || process.env.HUNGGING_FACE_API_KEY), processingTimeMs: Date.now() - startTime, verification: 'FAILED — exception, not fake success — Direct HF Inference' }, { status: 500 });
+      return NextResponse.json({ ok: false, errorCode: 'UNKNOWN_ERROR', errorMessage: safeMessage, state: 'FAILED', requestId, engineLabel: FORCE_ENGINE_LABEL, endpoint: HF_ENDPOINT, hasHuggingFaceKey: !!getHuggingFaceToken(), processingTimeMs: Date.now() - startTime, verification: 'FAILED — exception, not fake success — Direct HF Inference' }, { status: 500 });
     }
   } catch (error: any) {
     console.error(`[generate-hf] [${requestId}] Outer error: ${error.message}`, error.stack); const safeMessage = error.message.replace(/sk-[a-zA-Z0-9]+/g, '[REDACTED]').replace(/hf_[a-zA-Z0-9]+/g, '[REDACTED]');
-    return NextResponse.json({ ok: false, errorCode: 'UNKNOWN_ERROR', errorMessage: safeMessage, state: 'FAILED', requestId, engineLabel: FORCE_ENGINE_LABEL, endpoint: HF_ENDPOINT, hasHuggingFaceKey: !!(process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || process.env.HUGGINGFACE_API_TOKEN || process.env.HUGGING_FACE_API_KEY || process.env.HUNGGING_FACE_API_KEY), processingTimeMs: Date.now() - startTime }, { status: 500 });
+    return NextResponse.json({ ok: false, errorCode: 'UNKNOWN_ERROR', errorMessage: safeMessage, state: 'FAILED', requestId, engineLabel: FORCE_ENGINE_LABEL, endpoint: HF_ENDPOINT, hasHuggingFaceKey: !!getHuggingFaceToken(), processingTimeMs: Date.now() - startTime }, { status: 500 });
   }
 }
